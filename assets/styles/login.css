@@ -1,0 +1,159 @@
+:root {
+  /* EV Charging Color Palette */
+  --primary-red: #ff000f;
+  --dark-bg: #1a1a1a;
+  --card-bg: #222222;
+  --input-bg: #333333;
+  --border-color: #444444;
+  --text-white: #ffffff;
+  --text-gray: #b0b0b0;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
+}
+
+body,
+html {
+  height: 100%;
+}
+
+.login-page-container {
+  display: flex;
+  /* UPDATED: Centered the login card horizontally */
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  /* UPDATED: Simplified padding for all screen sizes */
+  padding: 20px;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+    url("https://assets.new.siemens.com/siemens/assets/api/uuid:38f52c0a-4678-490d-bf6b-1912f5fa779e/width:2000/quality:high/EV-Fleet-1.png");
+  background-size: cover;
+  background-position: center;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 40px;
+  border-radius: 16px;
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 35px;
+}
+
+.login-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-white);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.login-header .logo-icon {
+  color: var(--primary-red);
+  font-size: 32px;
+}
+
+.login-header p {
+  color: var(--text-gray);
+  margin-top: 8px;
+  font-size: 15px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: var(--text-gray);
+}
+
+.input-with-icon {
+  position: relative;
+}
+
+.input-with-icon i {
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-gray);
+  font-size: 20px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px 15px 12px 45px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 14px;
+  background-color: var(--input-bg);
+  color: var(--text-white);
+  transition: all 0.3s ease;
+}
+
+.form-group input::placeholder {
+  color: #777;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--primary-red);
+  box-shadow: 0 0 0 3px rgba(255, 0, 15, 0.3);
+}
+
+.login-btn {
+  width: 100%;
+  background-color: var(--primary-red);
+  color: var(--text-white);
+  border: none;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  margin-top: 10px;
+}
+
+.login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(255, 0, 15, 0.4);
+}
+
+.login-footer {
+  text-align: center;
+  margin-top: 25px;
+  font-size: 13px;
+}
+
+.login-footer a {
+  color: var(--text-gray);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.login-footer a:hover {
+  color: var(--primary-red);
+  text-decoration: underline;
+}

@@ -1,0 +1,579 @@
+.loader-container {
+    position: fixed;
+    /* Stick to viewport */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.8);
+    /* Optional: semi-transparent bg */
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    /* Ensure it's on top */
+}
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 5px solid #ccc;
+    border-top-color: #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loader-container span {
+    margin-top: 10px;
+    font-size: 16px;
+    color: #333;
+}
+
+
+
+        /* --- Root Variables & Global Styles --- */
+        :root {
+            /* Unchanged Sidebar Colors */
+            --primary-red: #c0282d;
+            --dark-red: #a82025;
+   --sidebar-bg: #CF212A;
+  --light-grey: #f4f5f7;
+            --text-dark: #333;
+
+            /* NEW: MNC Corporate Style Palette */
+            --corporate-blue: #005A9C;
+            /* Professional blue for accents */
+            --bg-main: #F7F8FC;
+            /* Very light grey background */
+            --bg-card: #ffffff;
+            --text-primary: #1A1A1A;
+            /* Near-black for high contrast */
+            --text-secondary: #555555;
+            /* Dark grey for secondary info */
+            --border-main: #EAEAEA;
+            /* Light, subtle border */
+            --hover-bg: #F0F6FF;
+            /* Light blue for hover states */
+            --shadow-color: rgba(0, 0, 0, 0.06);
+            --tooltip-bg: #212529;
+            --white: #ffffff;
+            --text-white: #FFFFFF;
+  --font-family: "Inter", sans-serif;
+        }
+
+     
+.sidebar-left {
+  display: none;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-main);
+  color: var(--text-light);
+}
+
+.dashboard-container {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  min-height: 100vh;
+}
+
+/* ==== Left Sidebar ==== */
+.sidebar-left {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--sidebar-bg);
+  color: var(--text-white);
+  /* padding: 20px; */
+  overflow-y: auto;
+}
+
+.logo-container {
+  padding-top: 15px;
+  padding-left: 20px;
+  /* margin-bottom: 30px; */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  background-color: white;
+}
+
+.logo {
+  height: 38px;
+  filter: brightness(0) invert(1);
+}
+
+.nav-menu ul {
+  list-style: none;
+  padding: 20px;
+}
+
+.nav-header {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 20px 15px 8px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.nav-menu li a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 15px;
+  /* font-weight: 500; */
+  color: rgba(255, 255, 255, 0.9);
+  transition: all 0.2s;
+  border-radius: 8px;
+  text-decoration: none;
+}
+
+.nav-menu li a:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.nav-menu li.active a {
+  background-color: #d32f2f;
+  color: white;
+}
+
+.nav-menu svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+}
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--text-white);
+  color: var(--sidebar-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.user-info {
+  line-height: 1.4;
+}
+
+.user-info strong {
+  display: block;
+  font-weight: 600;
+  color: var(--text-white);
+  font-size: 14px;
+}
+
+.logout-btn {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-white);
+  background-color: rgba(255, 255, 255, 0.2);
+  border: none;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  text-decoration: none;
+}
+
+.logout-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ==== Main Content Area ==== */
+.main-content {
+ padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    transition: margin-left 0.3s ease, width 0.3s ease;
+}
+
+        /* ========================================= */
+        /* --- END OF UNCHANGED SIDEBAR STYLES --- */
+        /* ========================================= */
+
+
+        /* ========================================= */
+        /* --- NEW MNC CORPORATE STYLE --- */
+        /* ========================================= */
+        .header {
+               display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--white);
+    padding: 16px 24px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .header-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .go-back-link {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: -16px;
+            transition: color 0.2s ease;
+        }
+
+        .go-back-link:hover {
+            color: var(--corporate-blue);
+        }
+
+        /* Universal Card Style */
+        .settlement-breakdown-card,
+        .gross-settlements-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-main);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px var(--shadow-color);
+        }
+
+        /* --- UNIQUE "COLOR FULL" STYLE FOR SUMMARY CARD --- */
+        .settlement-summary-card {
+            background: #009c4e;
+            color: var(--white);
+            border-radius: 8px;
+            padding: 28px 32px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            box-shadow: 0 4px 12px rgba(0, 90, 156, 0.2);
+        }
+
+        .summary-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.15);
+            color: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .summary-details .amount {
+            font-size: 30px;
+            font-weight: 600;
+            margin-right: 16px;
+            color: var(--white);
+        }
+
+        .summary-details .created-date {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            margin-top: 4px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            background-color: var(--white);
+            color: var(--corporate-blue);
+            border: none;
+        }
+
+        /* --- MODIFIED: Settlement Breakdown Card Styles --- */
+        .settlement-breakdown-card {
+            padding: 0 32px 24px 32px;
+            font-size: 15px;
+        }
+
+        .breakdown-header {
+            padding: 24px 0 12px 0;
+            border-bottom: 1px solid var(--border-main);
+            margin-bottom: 8px;
+        }
+
+        .breakdown-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .breakdown-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+        }
+
+        .breakdown-label {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        .breakdown-value {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .breakdown-value.deduction {
+            color: #D93025;
+        }
+
+        .breakdown-net-total {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 2px solid var(--text-primary);
+            display: flex;
+            justify-content: space-between;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .info-icon {
+            font-size: 12px;
+            color: #888;
+            border: 1px solid #ccc;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: help;
+            font-style: normal;
+            font-weight: 600;
+            margin-left: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .info-icon:hover {
+            background-color: var(--text-primary);
+            color: var(--bg-card);
+            border-color: var(--text-primary);
+        }
+
+        /* --- Gross Settlements Card & Table Styles --- */
+        .gross-settlements-card {
+            padding: 0;
+        }
+
+        .gross-settlements-header {
+            font-size: 18px;
+            font-weight: 600;
+            padding: 28px 32px 0 32px;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-main);
+            padding: 20px 32px 0 32px;
+        }
+
+        .tab-item {
+            padding: 12px 4px;
+            margin-right: 24px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            position: relative;
+        }
+
+        .tab-item.active {
+            color: var(--corporate-blue);
+            font-weight: 600;
+        }
+
+        .tab-item.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: var(--corporate-blue);
+        }
+
+        .tab-count {
+            background-color: #EEF1F7;
+            color: var(--text-secondary);
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            margin-left: 8px;
+            font-weight: 500;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        .transactions-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .transactions-table td {
+            padding: 16px 32px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-main);
+            white-space: nowrap;
+        }
+
+        /* --- UNIQUE "COLOR FULL" STYLE FOR TABLE HEADER --- */
+        .transactions-table th {
+            padding: 16px 32px;
+            text-align: left;
+            white-space: nowrap;
+            background-color: #414141;
+            color: var(--white);
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .transactions-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .transactions-table tbody tr {
+            transition: background-color 0.2s ease;
+        }
+
+        .transactions-table tbody tr:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .details-link {
+            color: var(--corporate-blue);
+            font-weight: 500;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .details-link:hover {
+            text-decoration: underline;
+        }
+
+        .info-tooltip {
+            position: fixed;
+            background-color: var(--tooltip-bg);
+            color: #ffffff;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            max-width: 280px;
+            z-index: 1050;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            text-align: left;
+            transform: translateY(5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .info-tooltip.visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+.dt-buttons .dt-button {
+     background-color: #CF212A !important; 
+    color: white !important;
+    border: none !important;
+    padding: 6px 12px !important;
+    border-radius: 4px;
+    font-weight: bold;
+    margin-bottom:5px;
+    margin-left:50px;
+}
+div.dt-buttons {
+    float: left;
+    margin-left: 30px !important;
+}
+.dt-button:hover {
+    background-color: darkred !important;
+    color: #fff !important;
+}
+
+.main-content {
+    overflow-x: hidden;
+}
+
+.main-content .table-responsive {
+    margin-top: 20px;
+}
+
+.main-content .transactions-table {
+    width: 100%;
+    table-layout: auto;
+    word-break: break-word;
+    margin-top:20px;
+}
+
+.transactions-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+    word-break: break-word;
+}
+
+.transactions-table th,
+.transactions-table td {
+    padding: 8px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.table-responsive thead {
+    overflow-x: auto;
+    width: 100%;
+}
