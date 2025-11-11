@@ -1,9 +1,11 @@
 <?php
 session_start();
-if ($_SESSION["user_mobile"] == '') {
+// ✅ Safe check before accessing the variable
+if (!isset($_SESSION["user_mobile"]) || $_SESSION["user_mobile"] == '') {
     header('Location: index.php');
-    exit;
+    exit();
 }
+
 include 'include/dbconnect.php';
 ?>
 <!DOCTYPE html>
@@ -64,61 +66,6 @@ include 'include/dbconnect.php';
                 </header>
                 <div class="content-row">
                     <div class="content-column-large">
-
-                        <!-- <div class="card" id="invoicing-form-card">
-                            <form id="invoice-form">
-                                <div class="card-header">
-                                    <h3>Create Manual Invoice</h3>
-                                </div>
-                                <div class="form-grid">
-                                    <div class="form-item"><label for="cpo-select">Bill To (CPO)</label><select id="cpo-select" required>
-                                        </select></div>
-                                    <div class="form-item"><label>Invoice ID</label><input type="text" id="invoice-id" value="" disabled></div>
-                                    <div class="form-item"><label>Fee Date</label><input type="date" id="invoice-date" required></div>
-                                    <div class="form-item"><label>Due Date</label><input type="date" id="due-date" required></div>
-                                </div>
-                                <div id="line-items-container"></div><button type="button" class="btn btn-secondary" data-action="add-item-btn" style="padding: 8px 16px;">+ Add Line Item</button>
-                                <div class="invoice-summary">
-                                    <div class="summary-box">
-                                        <div class="summary-row"><span>Subtotal</span><span id="summary-subtotal">₹ 0.00</span></div>
-                                        <div class="summary-row"><span>GST (18%)</span><span id="summary-gst">₹ 0.00</span></div>
-                                        <div class="summary-row total"><span>Grand Total</span><span id="summary-total">₹ 0.00</span></div>
-                                    </div>
-                                </div>
-                                <div class="invoice-actions"><button type="button" class="btn btn-secondary" data-action="save-draft">Save as Draft</button><button type="button" class="btn btn-primary" data-action="handle-invoice-form" id="generate_fee">Generate Fee</button></div>
-                            </form>
-                        </div>
-
-                        <div class="card" id="upload-form-card">
-                            <form id="upload-form" enctype="multipart/form-data" method="post">
-                                <div class="card-header">
-                                    <h3>Create Upload Invoice</h3>
-                                </div>
-                                <div class="form-grid two-columns">
-                                    <div class="form-group">
-                                        <input type="file" name="invoice_pdf" id="invoice_pdf" accept="application/pdf">
-                                    </div>
-                                    <div class="form-group">
-                                        <input type="text" id="voucher_no" name="voucher_no" placeholder="Enter Voucher No">
-                                    </div>
-                                </div>
-                                <br>
-                                <div class="form">
-                                    <div class="form-group">
-                                        <input type="text" id="grand_total" name="grand_total" placeholder="Enter Grand Total" readonly>
-                                    </div>
-                                </div>
-                                <br>
-                                <div class="form-grid" style="text-align: center;">
-                                    <button type="button" class="btn btn-primary" id="uploadBtn">Upload & Extract</button>
-                                </div>
-                                <div id="form-items-container"></div>
-                                <div class="invoice-actions">
-                                    <button type="button" class="btn btn-secondary" data-action="save-draft">Save as Draft</button>
-                                    <button type="button" class="btn btn-primary" data-action="handle-invoice-form" id="generate_fee">Generate Fee</button>
-                                </div>
-                            </form>
-                        </div> -->
                         <div class="card" id="invoice-form-card">
                             <div class="card-header">
                                 <h3>Create Invoice</h3>
@@ -241,35 +188,46 @@ include 'include/dbconnect.php';
             settlements: []
         };
         let currentSimData = [];
+        // Fetch CPO list
         $.ajax({
-            url: 'api/cpo_list.php',
+            url: 'api/cpo_list_api.php', // Make sure this URL is correct
             method: 'GET',
             dataType: 'json',
             success: function(response) {
-                if (response.status !== "success") {
+                if (!response || response.status !== "success") {
                     console.error("API returned non-success status");
+                    $('#cpo-select').html('<option value="">No CPOs found</option>');
                     return;
                 }
 
-                // Assuming your <select> has id="cpo-select"
+                // Sort alphabetically by cpo_name (ignoring leading/trailing spaces)
+                const sortedData = response.data
+                    .filter(item => item.cpo_name && item.cpo_name.trim() !== "")
+                    .sort((a, b) => a.cpo_name.trim().localeCompare(b.cpo_name.trim(), 'en', {
+                        sensitivity: 'base'
+                    }));
+
+                // Populate <select>
                 const $select = $('#cpo-select');
-                $select.empty(); // clear existing options
-                $select.append(`<option value="">-- Select a CPO --</option>`);
-                // Loop through the data and create <option> elements
-                response.data.forEach(item => {
+                $select.empty();
+                $select.append('<option value="">-- Select a CPO --</option>');
+
+                sortedData.forEach(item => {
                     const option = $('<option></option>')
                         .val(item.cpo_id)
-                        .text(item.cpo_name);
+                        .text(item.cpo_name.trim());
                     $select.append(option);
                 });
 
-                // If you want to store the settlements in appState as plain data (not DOM elements):
-                appState.settlements = response.data;
+                // Store in appState
+                appState.settlements = sortedData;
             },
             error: function(xhr, status, error) {
                 console.error("AJAX error:", error);
+                $('#cpo-select').html('<option value="">Error loading CPOs</option>');
             }
         });
+
 
 
         $.ajax({

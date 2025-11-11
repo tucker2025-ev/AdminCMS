@@ -1,17 +1,13 @@
 <?php
+// No changes to the PHP at the top of this file
 session_start();
-
-// ✅ Safe check before accessing the variable
-if (!isset($_SESSION["user_mobile"]) || $_SESSION["user_mobile"] == '') {
+if ($_SESSION["user_mobile"] == '') {
     header('Location: index.php');
-    exit();
+    exit;
 }
-
-// Clear demo session variables if logged in
 $_SESSION["demo_station_id"] = '';
-$_SESSION["demo_station_mobile"] = '';
+// $stationIds = explode(',', $_SESSION["station_ids"]);
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -19,34 +15,16 @@ $_SESSION["demo_station_mobile"] = '';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tucker CMS - Settlement</title>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/styles/style.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="icon" type="image/x-icon" href="images/favicon.ico">
-    <!-- Font Awesome CDN -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
 </head>
 <style>
-    .action-btn {
-        margin-top: 1px;
-        border-radius: 4px;
-        padding: 6px 12px;
-        background-color: #e53935;
-        color: white;
-        border: 1px solid #f1ededff;
-        cursor: pointer;
-    }
-
-    .modal-box {
-        max-height: 85vh !important;
-        /* limit modal height */
-        overflow-y: auto !important;
-        /* enables vertical scroll inside modal */
-    }
-
     .invoice-table {
         width: 100%;
         border-collapse: collapse;
@@ -130,36 +108,15 @@ $_SESSION["demo_station_mobile"] = '';
                 <div class="card">
                     <div class="filter-bar">
                         <div class="filter-item" style="flex-grow:1;"><input type="text" id="settlement-search" placeholder="Search by CPO name..."></div>
-                        <div class="filter-item">
-                            <select id="settlement-status-filter">
+                        <div class="filter-item"><select id="settlement-status-filter">
                                 <option value="Pending">Pending</option>
                                 <option value="Paid">Paid</option>
-                            </select>
-                        </div>
-                        <div class="filter-item">
-                            <select id="settlement-period-filter">
-                                <option value="All">All Periods</option>
-                                <option value="Period I">Period I (1–15)</option>
-                                <option value="Period II">Period II (16–End)</option>
-                            </select>
-                        </div>
-
-                        <div class="filter-item">
-                            <form method="post" action="download_pdf.php" id="pdfForm">
-                                <input type="hidden" name="month_name" value="<?php echo date('F'); ?>">
-                                <input type="hidden" name="year" value="<?php echo date('Y'); ?>">
-                                <input type="hidden" name="period" id="selectedPeriod" value="">
-
-                                <button type="submit" class="action-btn primary">Download PDF</button>
-                            </form>
-                        </div>
+                            </select></div>
                     </div>
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th>Download</th>
                                 <th>S.NO</th>
-                                <th>CPO ID</th>
                                 <th>CPO Name</th>
                                 <th>Period</th>
                                 <th style="text-align:right;">Gross Revenue</th>
@@ -182,11 +139,8 @@ $_SESSION["demo_station_mobile"] = '';
 
             <div id="toast" class="toast-notification"></div>
     </div>
-
+    <!-- <tr data-rowid="${clientRowId}" data-cpoid="${s.cpoId}" data-settlementid="${s.id}" class="clickable-row" onclick="document.getElementById('form-${s.id}').submit();"> -->
     <script>
-        document.getElementById('settlement-period-filter').addEventListener('change', function() {
-            document.getElementById('selectedPeriod').value = this.value;
-        });
         // Global appState to store CPO settlement data
         let appState = {
             settlements: []
@@ -244,8 +198,7 @@ $_SESSION["demo_station_mobile"] = '';
 
         // Load settlements via AJAX
         $.ajax({
-            url: "api/testing.php",
-            // url: "api/cpo_list_months.php",
+            url: "api/cpo_list_months.php",
             method: "GET",
             dataType: "json",
             data: {
@@ -253,55 +206,66 @@ $_SESSION["demo_station_mobile"] = '';
                 end_date: formatDate(new Date()) // today
             },
             success: function(response) {
-                // console.log("API Response:", response);
+                console.log("API Response:", response);
                 if (response.status !== true) return;
 
                 const rows = [];
                 const today = new Date();
+                const currentYear = today.getFullYear();
 
-                response.data.forEach(item => {
-                    const cpoName = item.cpo_name;
-                    const cpoId = item.cpo_id;
-                    const station_id = item.station_id;
-                    const station_mobile = item.station_mobile;
-                    const station_name = item.station_name;
+                // Loop over each CPO in response.data
+                Object.entries(response.data).forEach(([cpoName, cpoData]) => {
+                    const gst_status = cpoData.gst_status; // CPO-level
+                    const cpoId = cpoData.cpo_id;
+                    const station_id = cpoData.station_id;
+                    const station_mobile = cpoData.station_mobile;
 
-                    const gst_status = item.gst_status;
-                    const settlement_status = item.settlement_status;
+                    ["current_month", "previous_month"].forEach(monthType => {
+                        if (!cpoData[monthType]) return;
 
-                    // period label (1-15 / 16-end)
-                    const periodLabel = item.half_month_bucket;
-                    const periodMonthName = item.month_period;
-                    const year = today.getFullYear();
+                        Object.entries(cpoData[monthType]).forEach(([periodLabel, periodData]) => {
+                            const status = (periodData.settlement_status === "Y" || periodData.settlement_status === "Paid") ? "Paid" : "Pending";
 
-                    // standard settlement id
-                    const settlementId = `${cpoId}-${periodMonthName}-${periodLabel}`;
+                            // Determine correct month name
+                            let dateRef = new Date();
+                            if (monthType === "previous_month") {
+                                dateRef = new Date(dateRef.getFullYear(), dateRef.getMonth() - 1, 1);
+                            }
+                            const periodMonthName = dateRef.toLocaleString('default', {
+                                month: 'long'
+                            });
 
-                    if (cpoName !== '-') {
-                        rows.push({
-                            id: settlementId,
-                            cpoId: cpoId,
-                            station_id: station_id,
-                            station_mobile: station_mobile,
-                            station_name: station_name,
-                            cpoName: cpoName,
-                            isGstRegistered: gst_status,
-                            gst_status: gst_status,
-                            settlement_status: settlement_status,
-                            total_units: Number(item.total_units) || 0,
-                            final_cost: Number(item.total_final_cost) || 0,
-                            unit_cost: Number(item.total_unit_cost) || 0,
-                            grossRevenue: Number(item.total_unit_cost) || 0,
-                            gst: Number(item.total_gst_amount) || 0,
-                            period: `${periodLabel} ${periodMonthName} ${year}`,
-                            serviceFee: Number(item.total_service_fee) || 0,
-                            finalCost: (Number(item.total_unit_cost) || 0) + (Number(item.total_gst_amount) || 0),
-                            status: (settlement_status === "Y" || settlement_status === "Paid") ? "Paid" : "Pending",
-                            pending: Number(item.pending) || 0,
-                            invoice_list: item.invoice_list || [],
-                            month_period: item.month_period
+                            // Build standardized settlement id as string (no numeric-only expectation)
+                            const settlementId = `${cpoId}-${monthType}-${periodLabel}`;
+                            if (cpoName != '-') {
+                                rows.push({
+                                    id: settlementId,
+                                    cpoId: cpoId,
+                                    station_id: station_id,
+                                    station_mobile: station_mobile,
+                                    cpoName: cpoName,
+                                    isGstRegistered: gst_status,
+                                    gst_status: gst_status,
+                                    settlement_status: periodData.settlement_status,
+                                    total_units: Number(periodData.total_units) || 0,
+                                    final_cost: Number(periodData.final_cost) || 0,
+                                    unit_cost: Number(periodData.cost) || 0,
+                                    grossRevenue: Number(periodData.unit_cost) || 0,
+                                    gst: Number(periodData.gst_amount) || 0,
+                                    period: `${periodLabel} ${periodMonthName}`,
+                                    serviceFee: Number(periodData.service_fee) || 0,
+                                    finalCost: (Number(periodData.cost) || 0) + (Number(periodData.gst_amount) || 0),
+                                    status,
+                                    pending: Number(cpoData.pending) || 0,
+                                    invoice_list: cpoData.invoice_list || []
+                                });
+
+
+                            }
+
+
                         });
-                    }
+                    });
                 });
 
                 appState.settlements = rows.sort((a, b) =>
@@ -309,10 +273,8 @@ $_SESSION["demo_station_mobile"] = '';
                         sensitivity: 'base'
                     })
                 );
-
                 renderSettlementsTable(); // Now rows are in appState
             },
-
             error: function(xhr, status, error) {
                 console.error("AJAX error:", error);
             }
@@ -321,9 +283,7 @@ $_SESSION["demo_station_mobile"] = '';
         // Render settlements table with optional filters
         function renderSettlementsTable(filters = {}) {
             const {
-                status = 'Pending',
-                    search = '',
-                    period = 'All'
+                status = 'Pending', search = ''
             } = filters;
 
             const today = new Date();
@@ -331,30 +291,10 @@ $_SESSION["demo_station_mobile"] = '';
             const currentMonth = today.getMonth(); // 0-based
             const currentYear = today.getFullYear();
 
-            // const filtered = appState.settlements.filter(s =>
-            //     (status === 'All' || s.status === status) &&
-            //     s.cpoName.toLowerCase().includes(search.toLowerCase())
-            // );
-
-            const filtered = appState.settlements.filter(s => {
-                // --- Status filter ---
-                const statusMatch = status === 'All' || s.status === status;
-
-                // --- Search filter ---
-                const searchMatch = s.cpoName.toLowerCase().includes(search.toLowerCase());
-
-                // --- Period filter ---
-                const halfMonth = s.period.split(' ')[0] || '';
-                let periodValue = '';
-                if (halfMonth.startsWith("1–") || halfMonth.startsWith("1-")) {
-                    periodValue = 'Period I';
-                } else if (halfMonth.startsWith("16") || halfMonth.startsWith("16–") || halfMonth.startsWith("16-")) {
-                    periodValue = 'Period II';
-                }
-                const periodMatch = period === 'All' || periodValue === period;
-
-                return statusMatch && searchMatch && periodMatch;
-            });
+            const filtered = appState.settlements.filter(s =>
+                (status === 'All' || s.status === status) &&
+                s.cpoName.toLowerCase().includes(search.toLowerCase())
+            );
 
             // Sort by period: Period I first, Period II second
             filtered.sort((a, b) => {
@@ -366,12 +306,13 @@ $_SESSION["demo_station_mobile"] = '';
             });
 
             let i = 1;
-            const tableBodyHtml = filtered.map((s, index) => {
+
+            const tableBodyHtml = filtered.map((s, i) => {
                 const cpoMeta = findCpo(s.cpoId) || {};
                 const isGst = s.isGstRegistered;
                 const gstOnRevenue = isGst ? Number(s.grossRevenue) * 0.18 : 0;
                 const netPayable = calculateNetPayable(s);
-                const cpoNameHtml = `${s.cpoName} ${s.gst_status === 'Y' ? '<span class="gst-tag">GST</span>' : ''}`;
+                const cpoNameHtml = `${s.cpoName} ${s.gst_status == 'Y' ? '<span class="gst-tag">GST</span>' : ''}`;
 
                 // Parse period
                 const periodParts = s.period.split(' '); // ["1–15", "September", "2025"]
@@ -381,14 +322,13 @@ $_SESSION["demo_station_mobile"] = '';
 
                 // Determine last day of the period
                 let lastDayOfPeriod = 0;
-                let period_value = '';
-                if (halfMonth.startsWith("1–") || halfMonth.startsWith("1-")) {
+                if (halfMonth.startsWith("1–15") || halfMonth.startsWith("1-15")) {
                     lastDayOfPeriod = 15;
-                    period_value = `Period I (${s.month_period})`;
-                } else if (halfMonth.startsWith("16") || halfMonth.startsWith("16–") || halfMonth.startsWith("16-")) {
-                    const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth();
-                    lastDayOfPeriod = new Date(year, monthIndex + 1, 0).getDate();
-                    period_value = `Period II (${s.month_period})`;
+                    period_value = "Period I";
+                } else if (halfMonth.startsWith("16–") || halfMonth.startsWith("16-")) {
+                    // Get last day of the month
+                    period_value = "Period II";
+                    lastDayOfPeriod = new Date(year, new Date(`${monthName} 1, ${year}`).getMonth() + 1, 0).getDate();
                 }
 
                 const today = new Date();
@@ -398,64 +338,32 @@ $_SESSION["demo_station_mobile"] = '';
                 const isActionEnabled = today.getMonth() === periodMonth && today.getDate() > lastDayOfPeriod;
 
                 const isPaid = s.status.toLowerCase() === 'paid';
-                const clientRowId = `table_id${index + 1}`;
-                const currentMonth = new Date().toLocaleString('default', {
-                    month: 'long'
-                });
+                const clientRowId = `table_id${i}`;
 
                 let actionHtml = '';
-                if (s.settlement_status === 'N' && s.month_period === currentMonth) {
+                if (!isPaid && (s.settlement_status === 'N' || s.status === 'Pending')) {
                     actionHtml = !isActionEnabled ?
                         `<a class="action-link disabled" style="pointer-events:none; opacity:0.4;" data-action="initiate-settlement-payout" data-settlementid="${s.id}" data-cpoid="${s.cpoId}" data-rowid="${clientRowId}">Deduct & Pay</a>` :
                         `<a class="action-link" data-action="initiate-settlement-payout" data-settlementid="${s.id}" data-cpoid="${s.cpoId}" data-rowid="${clientRowId}">Deduct & Pay</a>`;
                 } else {
-                    actionHtml = s.settlement_status !== 'N' ? 'Paid' : `<a class="action-link" data-action="initiate-settlement-payout" data-settlementid="${s.id}" data-cpoid="${s.cpoId}" data-rowid="${clientRowId}">Deduct & Pay</a>`;
+                    actionHtml = (s.settlement_status !== 'N') ? 'Paid' : `<a class="action-link" data-action="initiate-settlement-payout" data-settlementid="${s.id}" data-cpoid="${s.cpoId}" data-rowid="${clientRowId}">Deduct & Pay</a>`;
                 }
+                const halfMonthValue = halfMonth.startsWith("16") ? `16-${new Date(year, new Date(`${monthName} 1, ${year}`).getMonth()+1, 0).getDate()}` : "1-15";
 
-                const halfMonthValue = halfMonth.startsWith("16") ?
-                    `16-${lastDayOfPeriod}` :
-                    "1-15";
-
-                return `
+                const html = `
 <tr data-rowid="${clientRowId}" data-cpoid="${s.cpoId}" data-settlementid="${s.id}" class="clickable-row">
-<td>
-        <form method="POST" action="demo.php" id="download-form-${s.id}" target="_blank" class="pdf-download-form">
-            <input type="hidden" name="station_id" value="${s.station_id}">
-            <input type="hidden" name="cpo_name" value="${s.cpoName}">
-            <input type="hidden" name="cpo_id" value="${s.cpoId}">
-            <input type="hidden" name="station_mobile" value="${s.station_mobile}">
-            <input type="hidden" name="month_name" value="${monthName}">
-            <input type="hidden" name="half_month" value="${halfMonthValue}">
-            <input type="hidden" name="year" value="${year}">
-            <input type="hidden" name="status" value="${s.status}">
-            <input type="hidden" name="grossRevenue" value="${s.grossRevenue}">
-            <input type="hidden" name="serviceFee" value="${s.serviceFee}">
-            <input type="hidden" name="gstAmount" value="${formatCurrency(s.gst_status === 'Y' ? s.gst : 0)}">
-            <input type="hidden" name="net_amount" value="${formatCurrency(s.gst_status === 'Y' ? (s.grossRevenue - s.serviceFee + s.gst) : (s.grossRevenue - s.serviceFee))}">
-        </form>
-        <i class="fas fa-download" style="cursor:pointer; color:#007bff;" title="Download PDF"
-           onclick="document.getElementById('download-form-${s.id}').submit()"></i>
-    </td>
-    <td>${index + 1}</td>
-    <td>${s.cpoId}</td>
+    <td>${i + 1}</td>
     <td>${cpoNameHtml}</td>
     <td>${period_value}</td>
     <td style="text-align:right;">${formatCurrency(s.grossRevenue)}</td>
     <td style="text-align:right;" class="outstanding-negative">- ${formatCurrency(s.serviceFee)}</td>
-    <td style="text-align:right; color:var(--positive-balance);">${formatCurrency(s.gst_status === 'Y' ? s.gst : 0)}</td>
-   <td style="text-align:right; font-weight:600;">
-  ${formatCurrency(
-    (s.grossRevenue > 0)
-      ? (s.gst_status === 'Y'
-          ? (s.grossRevenue - s.serviceFee + s.gst - 5.9)
-          : (s.grossRevenue - s.serviceFee - 5.9))
-      : 0
-  )}
-</td>
-
+    <td style="text-align:right; color:var(--positive-balance);">${formatCurrency(s.gst_status == 'Y' ? s.gst : 0)}</td>
+    <td style="text-align:right; font-weight:600;">
+        ${formatCurrency(s.gst_status === 'Y' ? (s.grossRevenue - s.serviceFee + s.gst) : s.final_cost)}
+    </td>
     <td><span class="status ${s.status.toLowerCase()}">${s.status}</span></td>
     <td>
-        <form method="POST" action="settlement_details.php" id="form-${s.id}" class="settlement-details-form">
+        <form method="POST" action="settlement_details.php" id="form-${s.id}">
             <input type="hidden" name="station_id" value="${s.station_id}">
             <input type="hidden" name="station_mobile" value="${s.station_mobile}">
             <input type="hidden" name="month_name" value="${monthName}">
@@ -467,32 +375,22 @@ $_SESSION["demo_station_mobile"] = '';
         ${actionHtml}
     </td>
 </tr>`;
-            }).join('');
 
+                return html;
+            }).join('');
 
             document.getElementById('settlements-table-body').innerHTML = tableBodyHtml;
         }
 
         // Delegate row clicks after rendering
-        // document.addEventListener("click", function(e) {
-        //     const row = e.target.closest(".clickable-row");
-        //     if (!row) return;
-
-        //     // Prevent form submit if action link clicked
-        //     if (e.target.closest(".action-link")) return;
-
-        //     const form = row.querySelector("form");
-        //     if (form) form.submit();
-        // });
         document.addEventListener("click", function(e) {
             const row = e.target.closest(".clickable-row");
             if (!row) return;
 
-            // Prevent row click if clicking action links or PDF icon
-            if (e.target.closest(".action-link") || e.target.closest(".pdf-download-form") || e.target.closest("i.fa-download")) return;
+            // Prevent form submit if action link clicked
+            if (e.target.closest(".action-link")) return;
 
-            // Submit the settlement details form (not PDF form)
-            const form = row.querySelector("form.settlement-details-form");
+            const form = row.querySelector("form");
             if (form) form.submit();
         });
 
@@ -501,11 +399,10 @@ $_SESSION["demo_station_mobile"] = '';
 
         // Filter inputs event handler
         document.querySelector('.main-content').addEventListener('input', e => {
-            if (e.target.matches('#settlement-search, #settlement-status-filter, #settlement-period-filter')) {
+            if (e.target.matches('#settlement-search, #settlement-status-filter')) {
                 renderSettlementsTable({
                     search: document.getElementById('settlement-search').value,
-                    status: document.getElementById('settlement-status-filter').value,
-                    period: document.getElementById('settlement-period-filter').value
+                    status: document.getElementById('settlement-status-filter').value
                 });
             }
         });
@@ -560,7 +457,7 @@ $_SESSION["demo_station_mobile"] = '';
 
         // Handle settlement payout - uses string settlementId
         function handleSettlementPayout(settlementId, deductionAmount, rowid, cpoIds) {
-            // console.log("Payout confirmed for ID:", settlementId, deductionAmount, rowid, cpoIds);
+            console.log("Payout confirmed for ID:", settlementId, deductionAmount, rowid, cpoIds);
 
             let updated = false;
             appState.settlements.forEach(settlement => {
@@ -573,6 +470,10 @@ $_SESSION["demo_station_mobile"] = '';
                         $row.find('span.status').removeClass('pending').addClass('paid').text('Paid');
                         $row.find('td:last-child').html('Paid');
                     }
+                    console.log('Arrays after push:');
+                    console.log('invoice_id:', send_invoice_id);
+                    console.log('list_id:', send_list_id);
+                    console.log('set_amount:', send_setamount);
                     // send update to backend
                     $.ajax({
                         url: 'api/update_settle.php',
@@ -590,6 +491,8 @@ $_SESSION["demo_station_mobile"] = '';
                         },
                         success: function(response) {
                             alert(response.message)
+                            console.log('Backend updated:', response);
+                            // window.location.reload();
                         },
                         error: function(xhr, status, error) {
                             console.error('AJAX error:', error);
@@ -755,7 +658,7 @@ $_SESSION["demo_station_mobile"] = '';
             // Calculate EMI amount
             let emiAmount = parseFloat((pending / months).toFixed(2));
 
-            //Check if EMI amount exceeds pending
+            // ✅ Check if EMI amount exceeds pending
             if (emiAmount > pending) {
                 alert(`Calculated EMI amount ₹${emiAmount} exceeds pending amount ₹${pending}.`);
                 $(`#settlement-amount-${listId}`).val('');
@@ -832,6 +735,12 @@ $_SESSION["demo_station_mobile"] = '';
                     // Replace the old amount with the new one
                     send_setamount[index] = set_amount;
                 }
+
+
+                // console.log('Arrays after push:');
+                console.log('invoice_id:&&&&', send_invoice_id);
+                console.log('list_id:&&&', send_list_id);
+                console.log('set_amount:&&&', send_setamount);
                 $button.prop('disabled', true);
 
             } else {
@@ -870,6 +779,10 @@ $_SESSION["demo_station_mobile"] = '';
                 send_list_id.push(hiddenListId);
                 send_setamount.push(set_amount);
             }
+            console.log('Updated arrays:');
+            console.log('invoice_id:', send_invoice_id);
+            console.log('list_id:', send_list_id);
+            console.log('set_amount:', send_setamount);
         });
 
         // Initial page load

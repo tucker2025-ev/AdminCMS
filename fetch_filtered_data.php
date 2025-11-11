@@ -38,10 +38,7 @@ if (isset($_GET['gstInput']) && $_GET['gstInput'] !== 'all') {
 // Build query and call backend API
 $query = http_build_query(array_filter($params));
 $full_url = "$url?$query";
-
-// Optional: Debug URL
 // echo $full_url;
-
 $response_json = file_get_contents($full_url);
 
 if ($response_json === FALSE) {

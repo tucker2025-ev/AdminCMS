@@ -1,10 +1,11 @@
 <?php
 session_start();
-if ($_SESSION["user_mobile"] == '') {
-	header('Location: index.php');
-	exit;
+// ✅ Safe check before accessing the variable
+if (!isset($_SESSION["user_mobile"]) || $_SESSION["user_mobile"] == '') {
+    header('Location: index.php');
+    exit();
 }
-include 'include/dbconnect.php';
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -87,6 +88,10 @@ include 'include/dbconnect.php';
 			const formatCurrency = (num) =>
 				`₹ ${parseFloat(num).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+			// Mock date for testing (replace with actual date or `new Date()`)
+			const MOCK_SYSTEM_DATE = new Date();
+
+			// --- Helper functions ---
 			const getMonthYear = (date) => {
 				return date.toLocaleString('default', {
 					month: 'long'
@@ -98,71 +103,73 @@ include 'include/dbconnect.php';
 				return new Date(Date.parse(`1 ${monthYearStr}`));
 			};
 
+			// --- Current and previous month strings ---
 			const now = MOCK_SYSTEM_DATE;
-			const thisMonthYear = getMonthYear(now);
+			const thisMonthYear = getMonthYear(now); // e.g., "September 2025"
 			const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-			const prevMonthYear = getMonthYear(prevMonthDate);
+			const prevMonthYear = getMonthYear(prevMonthDate); // e.g., "August 2025"
 
 			$.ajax({
 				url: 'api/settlement_list.php',
 				method: 'GET',
 				dataType: 'json',
 				success: function(response) {
-					console.log(response);
-					if (response.status !== "success") {
-						console.error("API returned non-success status");
-						return;
-					}
+					if (response.status !== "success") return;
 
 					const monthlyData = response.data.monthly || [];
 
-					// Sort descending by month date
-					monthlyData.sort((a, b) => parseMonthYear(b.month_name) - parseMonthYear(a.month_name));
-
+					// Get current month
 					const currentMonthData = monthlyData.find(m => m.month_name === thisMonthYear);
+
+					// Sort descending
+					monthlyData.sort((a, b) => parseMonthYear(b.month_name) - parseMonthYear(a.month_name));
 
 					let html = '';
 
 					if (currentMonthData) {
-						html += `<div class="dashboard-single-kpi"><h3 style="cursor:pointer;" data-action="filter-settlements" data-status="Pending">
-                    Net Amount to be Settled (Previous Month)
-                </h3><p style="color:var(--primary-red);">${formatCurrency(currentMonthData.unit_cost)}</p></div>`;
+						html += `<div class="dashboard-single-kpi">
+                        <h3 style="cursor:pointer;" data-action="filter-settlements" data-status="Pending">
+                            Net Amount to be Settled
+                        </h3>
+                        <p style="color:var(--primary-red);">${formatCurrency(currentMonthData.unit_cost)}</p>
+                    </div>`;
 					}
 
-					html += `<table class="data-table"><thead><tr>
-                <th>Period</th>
-                <th style="text-align:right;">Razorpay Collected Amount</th>
-                <th style="text-align:right;">Total Amount Settled</th>
-                <th style="text-align:right;">Revenue Balance</th>
-                <th style="text-align:right;">CPO Service Fee</th>
-                <th style="text-align:right;">Razorpay Fee</th>
-            </tr></thead><tbody>`;
-					monthlyData.forEach((month) => {
-						let label = month.month_name;
-						// if (month.month_name === thisMonthYear) {
-						// 	label = `${month.month_name}`;
-						// } else if (month.month_name === prevMonthYear) {
-						// 	label = `${month.month_name}`;
-						// }
+					html += `<table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Year</th>
+                            <th>Month</th>
+                            <th style="text-align:center;">Razorpay Collected Amount</th>
+                            <th style="text-align:center;">Amount Settlement Proposal</th>
+                            <th style="text-align:center;">Wallet Balance</th>
+                            <th style="text-align:center;">CPO Service Fee</th>
+                            <th style="text-align:center;">Razorpay Fee</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
 
+					monthlyData.forEach((month) => {
+						const [monthName, yearStr] = month.month_name.split(" ");
+						const year = parseInt(yearStr, 10);
 						const profit = month.razorpay_amount - month.total_cost;
 
-						html += `<tr><td>${label}</td>
-        <td style="text-align:right;">${formatCurrency(month.razorpay_amount)}</td>
-        <td style="text-align:right;">${formatCurrency(month.total_cost)}</td>
-        <td style="text-align:right; color:var(--positive-balance);">${formatCurrency(profit)}</td>
-        <td style="text-align:right;">${formatCurrency(month.total_rate)}</td>
-		<td style="text-align:right;">${formatCurrency(month.razorpay_amount * 0.0236)}</td>
-    </tr>`;
+						html += `<tr>
+                        <td>${year}</td>
+                        <td>${monthName}</td>
+                        <td style="text-align:center;">${formatCurrency(month.razorpay_amount)}</td>
+                        <td style="text-align:center;">${formatCurrency(month.total_cost)}</td>
+                        <td style="text-align:center; color:var(--positive-balance);">${formatCurrency(profit)}</td>
+                        <td style="text-align:center;">${formatCurrency(month.total_rate)}</td>
+                        <td style="text-align:center;">${formatCurrency(month.razorpay_fee)}</td>
+                    </tr>`;
 					});
-
 
 					html += '</tbody></table>';
 					$container.html(html);
 
-					// Prepare chart data from monthlyData for last 6 months relative to MOCK_SYSTEM_DATE
+					// Chart for last 6 months
 					const chartData = getMonthlyChartDataFromResponse(monthlyData, MOCK_SYSTEM_DATE);
-
 					const ctx = document.getElementById('financialChart').getContext('2d');
 					if (window.financialChartInstance) window.financialChartInstance.destroy();
 					window.financialChartInstance = new Chart(ctx, {
@@ -186,6 +193,7 @@ include 'include/dbconnect.php';
 					console.error("AJAX error:", error);
 				}
 			});
+
 		}
 
 		/**
@@ -249,7 +257,7 @@ include 'include/dbconnect.php';
             <tr>
                 <td>${item.cpo_name}</td>
                 <td>${item.period ?? '-'}</td>
-                <td style="text-align:right; font-weight:600;">${formattedNetAmount}</td>
+                <td style="font-weight:600;">${formattedNetAmount}</td>
                 <td>
                     ${
                         item.status 
@@ -271,7 +279,8 @@ include 'include/dbconnect.php';
 		}
 
 		$.ajax({
-			url: 'api/cpo_list_months.php',
+			// url: 'api/cpo_list_months.php',
+			url: "api/testing.php",
 			method: 'GET',
 			dataType: 'json',
 			data: {
@@ -292,19 +301,49 @@ include 'include/dbconnect.php';
 				const year = now.getFullYear();
 
 				// Convert object -> array (only current month entries)
-				allSettlements = Object.entries(response.data).map(([cpoName, cpoData]) => {
-					let current = cpoData.current_month?.["1-15"] ?? {};
-					return {
-						cpo_name: cpoName,
-						period: `${monthName} ${year} (1-15)`, // ✅ dynamic month name
-						total_cost: current.total_cost || 0,
-						total_rate: current.gst_amount || 0, // assuming GST = deduction
-						status: current.settlement_status === "Y" ? "Settled" : "Pending"
-					};
+				// allSettlements = Object.entries(response.data)
+				// 	.map(([cpoName, cpoData]) => {
+				// 		let current = cpoData.current_month?.["1-15"] ?? {};
+				// 		return {
+				// 			cpo_name: cpoName,
+				// 			period: `${monthName} ${year} (1-15)`,
+				// 			total_cost: current.total_cost || 0,
+				// 			total_rate: current.gst_amount || 0,
+				// 			status: current.settlement_status === "Y" ? "Settled" : "Pending"
+				// 		};
+				// 	})
+				// 	.filter(item => item.cpo_name && item.cpo_name.trim() !== "-");
+
+				// allSettlements.sort((a, b) => a.cpo_name.localeCompare(b.cpo_name, 'en', {
+				// 	sensitivity: 'base'
+				// }));
+
+				// // Show only first 2 records
+				const currentMonthName = now.toLocaleString('default', {
+					month: 'long'
 				});
+				const currentYear = now.getFullYear();
+
+				allSettlements = response.data
+					.filter(item => item.half_month_bucket === "1-15") // 1-15 period
+					.filter(item => item.cpo_name && item.cpo_name.trim() !== "-") // valid CPO names
+					.filter(item => item.month_period === currentMonthName) // current month only
+					.map(item => ({
+						cpo_name: item.cpo_name,
+						period: `${item.month_period} ${currentYear} (1-15)`,
+						total_cost: item.total_final_cost || 0,
+						total_rate: item.total_gst_amount || 0,
+						status: item.settlement_status === "Y" ? "Settled" : "Pending"
+					}))
+					.sort((a, b) => a.cpo_name.localeCompare(b.cpo_name, 'en', {
+						sensitivity: 'base'
+					}));
 
 				// Show only first 2 records
 				renderSettlements(allSettlements.slice(0, 2));
+
+
+
 			}
 		});
 

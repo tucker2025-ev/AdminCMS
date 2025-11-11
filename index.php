@@ -11,13 +11,28 @@ if (isset($_SESSION["user_mobile"])) {
 
 if (isset($_POST["submit"])) {
 	$uname1 = str_replace(' ', '', trim($_POST['username']));
+	$pass1  = base64_encode($_POST['password']);
 
-	$pass1 = base64_encode($_POST['password']);
-	$objResult = mysqli_query($connect, "SELECT * FROM `user_management` WHERE `user_mobile`='$uname1' AND `user_password`='$pass1'");
-	writeLog("Login Station Mobile is " . $uname1 . "Password Is : " . $pass1);
+	$sql = "SELECT * FROM user_management WHERE user_mobile='$uname1' AND user_password='$pass1'";
+	$objResult = mysqli_query($connect, $sql);
+
+	writeLog("Login Station Mobile is " . $uname1 . " Password Is : " . $pass1);
+
 	if (mysqli_num_rows($objResult) > 0) {
+		$row = mysqli_fetch_assoc($objResult);
+
 		$_SESSION["user_mobile"] = $uname1;
-		header("Location:dashboard.php");
+		$_SESSION["master_id"]   = $row["master_id"];
+		$_SESSION["user_name"]   = $row["user_name"];
+
+		//Redirect based on master_id
+		if (in_array($row["master_id"], [3, 4, 5])) {
+			header("Location: https://station.cms.tuckermotors.com/Marketing/Dashboard.php");
+		} else if ($row["master_id"] == 6) {
+			header("Location: https://station.cms.tuckermotors.com/asset/dashboard.php");
+		} else {
+			header("Location: dashboard.php");
+		}
 		exit;
 	} else {
 		header("Location:index.php?error=1");
@@ -25,6 +40,7 @@ if (isset($_POST["submit"])) {
 	}
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 

@@ -9,9 +9,9 @@ if (empty($_SESSION["user_mobile"])) {
 }
 
 // Query the billings_accounts table
-$result = mysqli_query($connect, "SELECT * FROM billings_accounts ORDER BY billing_id DESC");
+$result = mysqli_query($station_connect, "SELECT * FROM billings_accounts ORDER BY billing_id DESC");
 if (!$result) {
-    die("Query failed: " . mysqli_error($connect));
+    die("Query failed: " . mysqli_error($station_connect));
 }
 $totalOutstanding = 0;
 $totalPaid = 0;

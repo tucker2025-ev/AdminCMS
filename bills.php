@@ -1,9 +1,11 @@
 <?php
 session_start();
-if ($_SESSION["user_mobile"] == '') {
+// ✅ Safe check before accessing the variable
+if (!isset($_SESSION["user_mobile"]) || $_SESSION["user_mobile"] == '') {
     header('Location: index.php');
-    exit;
+    exit();
 }
+
 include 'include/dbconnect.php';
 ?>
 <!DOCTYPE html>
@@ -45,8 +47,10 @@ include 'include/dbconnect.php';
                     <table class="data-table">
                         <thead>
                             <tr>
+                                <th>SNO</th>
                                 <th>Bill ID</th>
                                 <th>CPO Name</th>
+                                <th>Station Name</th>
                                 <th>Date</th>
                                 <th style="text-align:right;">Amount</th>
                                 <th style="text-align:right;">Paid</th>
@@ -65,18 +69,18 @@ include 'include/dbconnect.php';
             <div id="toast" class="toast-notification"></div>
     </div>
     <script>
+        const showToast = (message, isSuccess = true) => {
+            const t = document.getElementById('toast');
+            t.textContent = message;
+            t.style.backgroundColor = isSuccess ? 'var(--paid-bg)' : 'var(--pending-bg)';
+            t.style.color = isSuccess ? 'var(--paid-text)' : 'var(--pending-text)';
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        };
         document.addEventListener('DOMContentLoaded', function() {
 
             const formatCurrency = (num) => `₹ ${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             const findCpoName = (cpoId) => findCpo(cpoId)?.name || 'Unknown';
-            const showToast = (message, isSuccess = true) => {
-                const t = document.getElementById('toast');
-                t.textContent = message;
-                t.style.backgroundColor = isSuccess ? 'var(--paid-bg)' : 'var(--pending-bg)';
-                t.style.color = isSuccess ? 'var(--paid-text)' : 'var(--pending-text)';
-                t.classList.add('show');
-                setTimeout(() => t.classList.remove('show'), 3000);
-            };
 
 
             const calculateNetPayable = (settlement) => {
@@ -210,17 +214,15 @@ include 'include/dbconnect.php';
         }
 
         function getFeeStatus(bill) {
-            // const totalPaid = getTotalPaidForFee(bill.id);
-            const totalPaid = bill.paid_amount;
-            const grand_total = bill.grand_total;
-            const remaining = bill.remaining;
+            const totalPaid = parseFloat(bill.paid_amount) || 0;
+            const grand_total = parseFloat(bill.grand_total) || 0;
 
-            if (parseFloat(totalPaid) >= parseFloat(grand_total)) {
+            if (totalPaid >= grand_total) {
                 return {
                     text: 'Paid',
                     class: 'paid'
                 };
-            } else if (totalPaid == 0) {
+            } else if (totalPaid === 0) {
                 return {
                     text: 'Unpaid',
                     class: 'unpaid'
@@ -229,7 +231,7 @@ include 'include/dbconnect.php';
                 return {
                     text: 'Partially Paid',
                     class: 'partially-paid'
-                }
+                };
             } else {
                 return {
                     text: 'Unpaid',
@@ -238,14 +240,15 @@ include 'include/dbconnect.php';
             }
         }
 
+
         $(document).ready(function() {
             function filterTable() {
                 let search = $('#bill-search').val().toLowerCase();
                 let status = $('#bill-status-filter').val();
 
                 $('#bills-table-body tr').each(function() {
-                    let cpoName = $(this).find('td:eq(1)').text().toLowerCase();
-                    let billStatus = $(this).find('td:eq(5)').text().trim();
+                    let cpoName = $(this).find('td:eq(2)').text().toLowerCase(); // fixed
+                    let billStatus = $(this).find('td:eq(7)').text().trim(); // fixed
 
                     let matchesSearch = cpoName.includes(search);
                     let matchesStatus = (status === "All") || (billStatus === status);
@@ -275,20 +278,40 @@ include 'include/dbconnect.php';
                 }),
                 success: function(response) {
                     if (response.success && Array.isArray(response.data)) {
-                        const invoiceData = response.data;
-                        const tableBodyHtml = invoiceData.map(b => {
+                        if (response.data.length === 0) {
+                            document.getElementById('bills-table-body').innerHTML = `
+                        <tr>
+                            <td colspan="8" style="text-align:center; color:#888;">
+                                No records available
+                            </td>
+                        </tr>`;
+                            return;
+                        }
+
+                        // Sort alphabetically by CPO name (A → Z)
+                        const invoiceData = response.data.sort((a, b) =>
+                            a.cpo_name.localeCompare(b.cpo_name, 'en', {
+                                sensitivity: 'base'
+                            })
+                        );
+
+                        const tableBodyHtml = invoiceData.map((b, index) => {
                             const statusInfo = getFeeStatus(b);
                             const actionHtml = statusInfo.text !== 'Paid' ?
-                                `<a class="action-link" data-action="show-record-payment-modal" data-id="${b.list_id}" data-bill='${JSON.stringify(b)}'>Record Payment</a>` : '-';
+                                `<a class="action-link" data-action="show-record-payment-modal" data-id="${b.list_id}" data-bill='${JSON.stringify(b)}'>Record Payment</a>` :
+                                '-';
+
                             return `<tr>
-                    <td>${b.invoice_id}</td>
-                    <td>${b.cpo_name}</td>  
-                    <td>${new Date(b.fee_date).toLocaleDateString('en-CA')}</td>
-                    <td style="text-align:right;">${formatCurrency(b.grand_total)}</td>
-                    <td style="text-align:right;">${formatCurrency(b.paid_amount)}</td>
-                    <td><span class="status ${statusInfo.class}">${statusInfo.text}</span></td>
-                    <td>${actionHtml}</td>
-                </tr>`;
+                        <td>${index + 1}</td>
+                        <td>${b.invoice_id}</td>
+                        <td>${b.cpo_name}</td>
+                        <td>${b.cpo_name}</td>
+                        <td>${new Date(b.entry_time).toISOString().replace('T', ' ').slice(0, 19)}</td>
+                        <td style="text-align:right;">${formatCurrency(b.grand_total)}</td>
+                        <td style="text-align:right;">${formatCurrency(b.paid_amount)}</td>
+                        <td><span class="status ${statusInfo.class}">${statusInfo.text}</span></td>
+                        <td>${actionHtml}</td>
+                    </tr>`;
                         }).join('');
 
                         document.getElementById('bills-table-body').innerHTML = tableBodyHtml;
@@ -302,14 +325,7 @@ include 'include/dbconnect.php';
                 }
             });
         }
-        const showToast = (message, isSuccess = true) => {
-            const t = document.getElementById('toast');
-            t.textContent = message;
-            t.style.backgroundColor = isSuccess ? 'var(--paid-bg)' : 'var(--pending-bg)';
-            t.style.color = isSuccess ? 'var(--paid-text)' : 'var(--pending-text)';
-            t.classList.add('show');
-            setTimeout(() => t.classList.remove('show'), 3000);
-        };
+
 
         // Payment For Invoice 
         $(document).on('click', '#confirm-payment-btn', function(e) {
@@ -365,7 +381,6 @@ include 'include/dbconnect.php';
             });
         });
     </script>
-
 
 </body>
 

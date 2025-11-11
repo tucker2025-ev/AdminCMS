@@ -1,9 +1,9 @@
 <?php
 // No changes to the PHP at the top of this file
 session_start();
-if ($_SESSION["user_mobile"] == '') {
+if (!isset($_SESSION["user_mobile"]) || $_SESSION["user_mobile"] == '') {
     header('Location: index.php');
-    exit;
+    exit();
 }
 include 'include/dbconnect.php';
 // $stationIds = explode(',', $_SESSION["station_ids"]);
@@ -206,6 +206,7 @@ $data = json_decode($response, true);
                                 <th>Invoice ID</th>
                                 <th>Date</th>
                                 <th>CPO Name</th>
+                                <th>Station Name</th>
                                 <th>Station</th>
                                 <th>Chargepoint</th>
                                 <th>Amount</th>
@@ -218,11 +219,17 @@ $data = json_decode($response, true);
                             $totalGST_Amount = 0;
                             $totalnon_GST_Amount = 0;
                             if ($data && $data['status'] == "true" && isset($data['Message'])) {
+                                // 🔹 Sort alphabetically by CPO Name (A-Z)
+                                usort($data['Message'], function ($a, $b) {
+                                    return strcmp(strtolower($a['cpo_name'] ?? ''), strtolower($b['cpo_name'] ?? ''));
+                                });
                                 foreach ($data['Message'] as $item) {
 
                                     $transactionId = $item['transaction_id'] ?? '-';
                                     $name = (!empty(trim($item['name']))) ? $item['name'] : '-';
                                     $cpo_name = (!empty(trim($item['cpo_name']))) ? $item['cpo_name'] : '-';
+                                    $station_name = (!empty(trim($item['station_name']))) ? $item['station_name'] : '-';
+
                                     $mobile = (!empty(trim($item['mobile']))) ? $item['mobile'] : '-';
                                     $chargerId = (!empty(trim($item['charger_id']))) ? $item['charger_id'] : '-';
                                     $con_qr_code = (!empty(trim($item['con_qr_code']))) ? $item['con_qr_code'] : '-';
@@ -241,7 +248,7 @@ $data = json_decode($response, true);
                                     $status = (!empty($item['stop_reason']) && $item['stop_reason'] == "Remote") ? "completed" : "failed";
 
                                     $gstin = $item['gstin'] ?? '';
-                                    trim($gstin) ? $totalGST_Amount += (float) str_replace('₹', '', $item['total_cost']) : $totalnon_GST_Amount += (float) str_replace('₹', '', $item['total_cost']);
+                                    trim($gstin) ? $totalGST_Amount += (float) str_replace('₹', '', $item['total_cost'] ?? 0) : $totalnon_GST_Amount += (float) str_replace('₹', '', $item['total_cost'] ?? 0);
 
                                     $gstBadge = !empty(trim($gstin)) ? '<span class="badge badge-gst">GST</span>' : '<span class="badge badge-non-gst">Non-GST</span>'; ?>
 
@@ -260,6 +267,9 @@ $data = json_decode($response, true);
                                         <td>
                                             <?= htmlspecialchars($cpo_name) ?>
                                         </td>
+                                        <td>
+                                            <?= htmlspecialchars($station_name) ?>
+                                        </td>
                                         <td class="duration-cell">
                                             <?= $station_id ?>
                                         </td>
@@ -274,6 +284,8 @@ $data = json_decode($response, true);
                             <?php
                                 }
                             } else {
+                                $totalGST_Amount = 0;
+                                $totalnon_GST_Amount = 0;
                                 echo "<tr><td colspan='8' style='text-align: center;'>No transaction data found.</td></tr>";
                             }
                             ?>
@@ -409,10 +421,15 @@ $data = json_decode($response, true);
                     // $('#applyFiltersBtn').prop('disabled', false);
                     if (json.status !== 'true') {
                         $('#customer-invoices-table-body').empty();
+                        $('#total-gst-invoices').text(`₹0.00`);
+                        $('#total-non-gst-invoices').text(`₹0.00`);
+
                         return;
                     }
 
                     const rows = json.Message || [];
+                    //Sort rows A → Z by cpo_name
+                    rows.sort((a, b) => (a.cpo_name || '').localeCompare(b.cpo_name || ''));
                     const $tbody = $('#customer-invoices-table-body');
                     $tbody.empty();
                     let totalGST_Amount = 0;
@@ -434,6 +451,7 @@ $data = json_decode($response, true);
                         tr.append(`<td>#${data.transaction_id} ${gstBadge}</td>`);
                         tr.append(`<td>${data.start_time ? new Date(data.start_time).toLocaleString() : '-'}</td>`);
                         tr.append(`<td>${data.cpo_name || '-'}</td>`);
+                        tr.append(`<td>${data.station_name || '-'}</td>`);
                         tr.append(`<td>${data.station_id || '-'}</td>`);
                         tr.append(`<td>${data.charger_id || '-'}</td>`);
                         tr.append(`<td>₹${cost.toFixed(2)}</td>`);
@@ -462,31 +480,41 @@ $data = json_decode($response, true);
         }
     });
     $.ajax({
-        url: 'api/cpo_list.php',
+        url: 'api/cpo_list_api.php',
         method: 'GET',
         dataType: 'json',
         success: function(response) {
-            if (response.status !== "success") {
+            if (!response || response.status !== "success") {
                 console.error("API returned non-success status");
                 return;
             }
-            // Assuming your <select> has id="cpo-select"
-            const $select = $('#ci-cpo-filter');
-            $select.empty(); // clear existing options
-            $select.append(`<option value="">-- Select a CPO --</option>`);
-            // Loop through the data and create <option> elements
-            response.data.forEach(item => {
-                const option = $('<option></option>')
-                    .val(item.cpo_name)
-                    .text(item.cpo_name);
-                $select.append(option);
-            });
 
+            const $select = $('#ci-cpo-filter');
+            $select.empty(); // Clear existing options
+            $select.append('<option value="">-- Select a CPO --</option>');
+
+            // Sort A → Z by cpo_name, trimming spaces
+            const sortedData = response.data
+                .filter(item => item.cpo_name && item.cpo_name.trim() !== "")
+                .sort((a, b) => a.cpo_name.trim().localeCompare(b.cpo_name.trim(), 'en', {
+                    sensitivity: 'base'
+                }));
+
+            // Add options
+            sortedData.forEach(item => {
+                $select.append(
+                    $('<option></option>')
+                    //.val(item.cpo_id) // use ID as value
+                    .val(item.cpo_name.trim())
+                    .text(item.cpo_name.trim())
+                );
+            });
         },
         error: function(xhr, status, error) {
             console.error("AJAX error:", error);
         }
     });
+
 
     $('#DownloadBtn').on('click', function() {
         const rows = [];

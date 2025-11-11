@@ -1,9 +1,11 @@
 <?php
 session_start();
-if ($_SESSION["user_mobile"] == '') {
+// ✅ Safe check before accessing the variable
+if (!isset($_SESSION["user_mobile"]) || $_SESSION["user_mobile"] == '') {
     header('Location: index.php');
-    exit;
+    exit();
 }
+
 include 'include/dbconnect.php';
 ?>
 <!DOCTYPE html>
@@ -34,7 +36,9 @@ include 'include/dbconnect.php';
                     <table class="data-table">
                         <thead>
                             <tr>
+                                <th>SNO</th>
                                 <th>CPO Name</th>
+                                <th>Station Name</th>
                                 <th>Total Fees</th>
                                 <th>Total Paid</th>
                                 <th>Outstanding Receivable</th>
@@ -53,6 +57,7 @@ include 'include/dbconnect.php';
                     <table class="data-table">
                         <thead>
                             <tr>
+                                <th>SNO</th>
                                 <th>Date</th>
                                 <th>Description</th>
                                 <th>Transaction ID</th>
@@ -71,25 +76,39 @@ include 'include/dbconnect.php';
             </div>
             <div id="toast" class="toast-notification"></div>
     </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+
             function showPage(pageId, options = {}) {
+                // Hide all pages
                 document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
-                document.getElementById(pageId)?.classList.add('active');
+                // Show selected page
+                const pageEl = document.getElementById(pageId);
+                if (pageEl) pageEl.classList.add('active');
+
+                // Update nav
                 document.querySelectorAll('.nav-item').forEach(l => l.classList.remove('active'));
-                const navLink = document.querySelector(`[data-page="${pageId}"]`) || document.querySelector(`[data-page="${options.parentPage}"]`);
-                navLink?.parentElement.classList.add('active');
+                const navLink = document.querySelector(`[data-page="${pageId}"]`) ||
+                    document.querySelector(`[data-page="${options.parentPage}"]`);
+                if (navLink?.parentElement) navLink.parentElement.classList.add('active');
+
+                // Render page if renderer exists
                 const pageRenderers = {
                     'cpo-accounts-page': renderCpoAccounts
                 };
                 if (pageRenderers[pageId]) pageRenderers[pageId]();
             }
 
+            // ==============================
+            // Render CPO ACCOUNTS PAGE
+            // ==============================
             function renderCpoAccounts() {
-                $('#cpo-ledger-page').css('display', 'none');
-                $('#cpo-accounts-page').css('display', '');
-                document.getElementById('cpo-ledger-page').classList.remove('active');
-                document.getElementById('cpo-accounts-page').classList.add('active');
+                $('#cpo-ledger-page').hide();
+                $('#cpo-accounts-page').show();
+                $('#cpo-ledger-page').removeClass('active');
+                $('#cpo-accounts-page').addClass('active');
+
                 $.ajax({
                     url: 'api/cpo_accounts.php',
                     method: 'POST',
@@ -99,24 +118,40 @@ include 'include/dbconnect.php';
                         action: "invoice_list"
                     }),
                     success: function(response) {
-                        if (response.status === "success" && Array.isArray(response.data)) {
-                            const invoiceData = response.data;
-                            // Build the table rows HTML
-                            const tableBodyHtml = invoiceData.map(item => {
+                        if (response.status !== "success" || !Array.isArray(response.data)) {
+                            console.error("Invalid response from server");
+                            return;
+                        }
+
+                        //Filter and sort alphabetically (A → Z)
+                        const invoiceData = response.data
+                            .filter(item => item.cpo_name && item.cpo_name.trim() !== "")
+                            .sort((a, b) => a.cpo_name.trim().localeCompare(b.cpo_name.trim(), 'en', {
+                                sensitivity: 'base'
+                            }));
+
+                        let tableBodyHtml = '';
+
+                        if (invoiceData.length === 0) {
+                            tableBodyHtml = `<tr><td colspan="7" style="text-align:center; color:#777;">No data available to set</td></tr>`;
+                        } else {
+                            tableBodyHtml = invoiceData.map((item, index) => {
                                 const gstTag = item.gst_status === 'Y' ? `<span class="gst-tag">GST</span>` : '';
                                 return `<tr>
-                            <td>${item.cpo_name} ${gstTag}</td>
-                            <td>₹ ${item.total_fees || 0}</td>
-                            <td>₹ ${item.total_paid || 0}</td>
-                            <td>₹ ${item.remaining || 0}</td>
-                           <td><a class="action-link" onclick="renderCpoLedger('${item.cpo_id}', '${item.cpo_name}')" data-cpo-id="${item.cpo_id}">View Statement</a></td></tr>`;
+                                <td>${index + 1}</td>
+                                <td>${item.cpo_name.trim()} ${gstTag}</td>
+                                <td>${item.station_name ?? 'N/A'}</td>
+                                <td>₹ ${item.total_fees || 0}</td>
+                                <td>₹ ${item.total_paid || 0}</td>
+                                <td>₹ ${item.remaining || 0}</td>
+                                <td>
+                                    <a class="action-link" onclick="renderCpoLedger('${item.cpo_id}', '${item.cpo_name.trim()}')" data-cpo-id="${item.cpo_id}">View Statement</a>
+                                </td>
+                            </tr>`;
                             }).join('');
-                            // Insert rows into table body
-                            document.getElementById('cpo-accounts-body').innerHTML = tableBodyHtml;
-
-                        } else {
-                            console.error("Invalid response from server");
                         }
+
+                        document.getElementById('cpo-accounts-body').innerHTML = tableBodyHtml;
                     },
                     error: function(xhr, status, error) {
                         console.error("AJAX error:", error);
@@ -124,16 +159,22 @@ include 'include/dbconnect.php';
                 });
             }
 
+            // Initial load
             showPage('cpo-accounts-page');
         });
 
-
+        // ==============================
+        // Render INDIVIDUAL CPO LEDGER PAGE
+        // ==============================
         function renderCpoLedger(cpoId, cpoName) {
-            $('#cpo-accounts-page').css('display', 'none');
-            $('#cpo-ledger-page').css('display', '');
-            document.getElementById('cpo-accounts-page').classList.remove('active');
-            document.getElementById('cpo-ledger-page').classList.add('active');
-            document.getElementById('cpo-ledger-header').innerHTML = `<h2>Account Statement <span style="font-weight:400; color:var(--text-light)">for ${cpoName}</span></h2>`;
+            $('#cpo-accounts-page').hide();
+            $('#cpo-ledger-page').show();
+            $('#cpo-accounts-page').removeClass('active');
+            $('#cpo-ledger-page').addClass('active');
+
+            document.getElementById('cpo-ledger-header').innerHTML =
+                `<h2>Account Statement <span style="font-weight:400; color:var(--text-light)">for ${cpoName}</span></h2>`;
+
             $.ajax({
                 url: 'api/single_cpo_ledger.php',
                 method: 'POST',
@@ -143,55 +184,60 @@ include 'include/dbconnect.php';
                     cpo_id: cpoId
                 }),
                 success: function(response) {
-                    if (response.status === "success" && Array.isArray(response.data)) {
-                        const invoiceData = response.data;
+                    if (response.status !== "success" || !Array.isArray(response.data)) {
+                        console.error("Invalid response from server");
+                        return;
+                    }
 
-                        const tableBodyHtml = invoiceData.map(item => {
-                            if (item.invoice_id != null) {
-                                creditRow = '';
-                                const amount = item.grand_total || 0;
-                                const paid = item.paid_amount || 0;
-                                const remaining = amount - paid;
-                                // Row 1: Debit (Receivable) — in red
-                                const debitRow = `<tr>
-                    <td>${item.entry_time}</td>
-                    <td>${item.description}</td>
-                    <td>${item.invoice_id}</td>
-                    <td style="color: red;">₹ ${amount.toFixed(2)}</td>
-                    <td>-</td>
-                    <td style="color: red;">₹ ${amount.toFixed(2)}</td>
-                </tr>`;
+                    const invoiceData = response.data;
+                    const validRows = invoiceData.filter(item => item.invoice_id);
 
-                                if ((item.grand_total != item.remaining) && (item.grand_total == item.paid_amount)) {
-                                    // Row 2: Credit (Received) — in green
-                                    creditRow = `<tr>
-                    <td>${item.entry_time}</td>
-                    <td>${item.description}</td>
-                    <td>${item.invoice_id}</td>
-                    <td>-</td>
-                    <td style="color: green;">₹ ${paid.toFixed(2)}</td>
-                    <td style="color: green;">₹ 0.00</td>
-                </tr>`;
-                                }
+                    let tableBodyHtml = '';
 
+                    if (validRows.length === 0) {
+                        tableBodyHtml = `<tr><td colspan="7" style="text-align:center; color:#777;">No data available to set</td></tr>`;
+                    } else {
+                        let sno = 1;
+                        tableBodyHtml = validRows.map(item => {
+                            const amount = parseFloat(item.grand_total) || 0;
+                            const paid = parseFloat(item.paid_amount) || 0;
+                            const remaining = amount - paid;
 
-                                return debitRow + creditRow;
+                            let debitRow = `<tr>
+                            <td>${sno++}</td>
+                            <td>${item.entry_time || 'N/A'}</td>
+                            <td>${item.description || 'N/A'}</td>
+                            <td>${item.invoice_id}</td>
+                            <td style="color: red;">₹ ${amount.toFixed(2)}</td>
+                            <td>-</td>
+                            <td style="color: red;">₹ ${amount.toFixed(2)}</td>
+                        </tr>`;
+
+                            let creditRow = '';
+                            if (paid > 0) {
+                                creditRow = `<tr>
+                                <td>${sno++}</td>
+                                <td>${item.entry_time || 'N/A'}</td>
+                                <td>${item.description || 'N/A'}</td>
+                                <td>${item.invoice_id}</td>
+                                <td>-</td>
+                                <td style="color: green;">₹ ${paid.toFixed(2)}</td>
+                                <td style="color: green;">₹ 0.00</td>
+                            </tr>`;
                             }
 
-                            return ''; // Skip if no invoice_id
+                            return debitRow + creditRow;
                         }).join('');
-
-                        document.getElementById('cpo-ledger-body').innerHTML = tableBodyHtml;
-                    } else {
-                        console.error("Invalid response from server");
                     }
+
+                    document.getElementById('cpo-ledger-body').innerHTML = tableBodyHtml;
+                },
+                error: function(xhr, status, error) {
+                    console.error("AJAX error:", error);
                 }
-
             });
-
         }
     </script>
-
 
 </body>
 
